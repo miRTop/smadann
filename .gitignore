@@ -1,0 +1,6 @@
+.nextflow*
+test/stats*
+test/*trim*
+test/atropos*
+work/*
+results/*
