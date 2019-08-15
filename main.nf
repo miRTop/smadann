@@ -53,6 +53,9 @@ if (params.csv){
             .set {raw_reads_trimgalore}
 }  
 
+ch_multiqc_config = Channel.fromPath(params.multiqc_config, checkIfExists: true)
+
+
 /*
  * STEP 2 - Trim Galore!
  */
@@ -66,8 +69,8 @@ process trim_galore {
 
     output:
     file '*.gz' 
-    file '*trimming_report.txt'
-    file "*_fastqc.{zip,html}"
+    file '*trimming_report.txt' into trimgalore_results
+    file "*_fastqc.{zip,html}" into fastqc_results
 
     script:
     // Define regular variables so that they can be overwritten
@@ -80,6 +83,10 @@ process trim_galore {
         clip_R1 = 0
         three_prime_clip_R1 = 0
         three_prime_adapter = "TGGAATTCTCGGGTGCCAAGG"
+    } else if (protocol == "nebnext"){
+        clip_R1 = 0
+        three_prime_clip_R1 = 0
+        three_prime_adapter = "AGATCGGAAGAGCACACGTCT"
     } else if (protocol == "nextflex"){
         clip_R1 = 4
         three_prime_clip_R1 = 4
@@ -105,6 +112,28 @@ process trim_galore {
     tpc_r1 = three_prime_clip_R1 > 0 ? "--three_prime_clip_R1 ${three_prime_clip_R1}" : ''
     """
     trim_galore --adapter ${three_prime_adapter} $tg_length $c_r1 $tpc_r1 --max_length 40 --gzip $reads --fastqc
+    """
+}
+
+
+/*
+ * STEP 8 - MultiQC
+ */
+process multiqc {
+    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+
+    input:
+    file ('fastqc/*') from fastqc_results.collect()
+    file ('trim_galore/*') from trimgalore_results.collect()
+    file multiqc_config from ch_multiqc_config
+
+    output:
+    file "*multiqc_report.html" into multiqc_report
+    file "*_data"
+
+    script:
+    """
+    multiqc . --config $multiqc_config -f -m cutadapt -m fastqc 
     """
 }
 
