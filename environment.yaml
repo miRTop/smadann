@@ -14,4 +14,5 @@ dependencies:
   - trim-galore=0.6.3
   - dnapi
   - seqkit
+  - mirtrace=1.0.0
   - multiqc=1.0.7

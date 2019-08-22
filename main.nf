@@ -12,6 +12,7 @@ def helpMessage() {
     Mandatory arguments:
       --reads                       Path to input data (must be surrounded with quotes).
       --csv                         CSV file with first column read file and second column protocol
+      --mirtrace_species            3 letter code for the species compatible with miRBase naming. 'hsa' for human.
       --protocol                    Library preparation protocol. Default: "illumina". Can be set as "illumina", "nextflex", "qiaseq" or "cats"
 
     Trimming options
@@ -68,7 +69,7 @@ process trim_galore {
      set file(reads), val(protocol) from raw_reads_trimgalore
 
     output:
-    file '*.gz' 
+    file '*.gz' into reads_trimmed_ch
     file '*trimming_report.txt' into trimgalore_results
     file "*_fastqc.{zip,html}" into fastqc_results
 
@@ -114,6 +115,38 @@ process trim_galore {
     trim_galore --adapter ${three_prime_adapter} $tg_length $c_r1 $tpc_r1 --max_length 40 --gzip $reads --fastqc
     """
 }
+
+
+/*
+ * STEP 7 - miRTrace
+ */
+process mirtrace {
+     tag "$reads"
+     publishDir "${params.outdir}/miRTrace", mode: 'copy'
+      
+     input:
+     file reads from reads_trimmed_ch.collect()
+
+     output:
+     file '*mirtrace' into mirtrace_results
+
+     script:
+     """
+     for i in $reads
+     do
+         path=\$(realpath \${i})
+         prefix=\$(echo \${i} | sed -e "s/.gz//" -e "s/.fastq//" -e "s/.fq//" -e "s/_val_1//" -e "s/_trimmed//" -e "s/_R1//" -e "s/.R1//")
+         echo \$path","\$prefix
+     done > mirtrace_config
+
+     mirtrace qc \\
+         --species $params.mirtrace_species \\
+         --config mirtrace_config \\
+         --write-fasta \\
+         --output-dir mirtrace \\
+         --force
+     """
+ }
 
 
 /*
